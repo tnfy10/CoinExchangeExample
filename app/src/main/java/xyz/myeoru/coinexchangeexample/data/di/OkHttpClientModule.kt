@@ -5,19 +5,13 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import java.util.concurrent.TimeUnit
 import javax.inject.Qualifier
 
 @Module
 @InstallIn(SingletonComponent::class)
-object NetworkModule {
-
-    @Provides
-    fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
+object OkHttpClientModule {
 
     @Qualifier
     @Retention(AnnotationRetention.BINARY)
@@ -26,6 +20,11 @@ object NetworkModule {
     @Qualifier
     @Retention(AnnotationRetention.BINARY)
     annotation class RestApiOkHttpClient
+
+    @Provides
+    fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
 
     @SocketOkHttpClient
     @Provides
@@ -47,9 +46,4 @@ object NetworkModule {
         writeTimeout(30, TimeUnit.SECONDS)
         addInterceptor(loggingInterceptor)
     }.build()
-
-    @Provides
-    fun provideBitThumbRequest(): Request = Request.Builder()
-        .url("wss://pubwss.bithumb.com/pub/ws")
-        .build()
 }

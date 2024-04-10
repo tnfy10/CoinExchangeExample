@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import xyz.myeoru.coinexchangeexample.core.constant.CoinChangeType
 import xyz.myeoru.coinexchangeexample.core.constant.CoinSymbols
@@ -39,6 +40,17 @@ fun HomeScreen(
     val coinMap by homeViewModel.coinMapState.collectAsStateWithLifecycle()
     val coinChangeMap by homeViewModel.coinChangeMapState.collectAsStateWithLifecycle()
 
+    LifecycleResumeEffect(key1 = Unit) {
+        with(homeViewModel) {
+            fetchCoinCurrentPrice()
+            startReceiveCoinCurrentPrice()
+        }
+
+        onPauseOrDispose {
+            homeViewModel.stopReceiveCoinCurrentPrice()
+        }
+    }
+
     HomeContainer(
         coinMap = coinMap,
         coinChangeMap = coinChangeMap,
@@ -49,8 +61,8 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContainer(
-    coinMap: Map<CoinSymbols, Ticker>,
-    coinChangeMap: Map<CoinSymbols, CoinChangeType>,
+    coinMap: Map<String, Ticker>,
+    coinChangeMap: Map<String, CoinChangeType>,
     onNavigateToCoinInfo: (symbol: String) -> Unit
 ) {
     Scaffold(
@@ -89,7 +101,7 @@ private fun HomeContainer(
                                     )
                                 )
                             }
-                            coinMap[item]?.let {
+                            coinMap[item.name]?.let {
                                 val formattedClosePrice = when {
                                     it.closePrice == 0.0 -> "0"
                                     it.closePrice >= 1 -> DecimalFormat("#,##0").format(it.closePrice)
@@ -129,7 +141,7 @@ private fun HomeContainer(
                     },
                     modifier = Modifier.clickable { onNavigateToCoinInfo(item.name) },
                     colors = ListItemDefaults.colors(
-                        containerColor = when (coinChangeMap[item]) {
+                        containerColor = when (coinChangeMap[item.name]) {
                             CoinChangeType.Up -> Color.Red.copy(alpha = 0.1f)
                             CoinChangeType.Down -> Color.Blue.copy(alpha = 0.1f)
                             else -> Color.Transparent

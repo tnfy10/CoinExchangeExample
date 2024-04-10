@@ -9,4 +9,6 @@ interface CoinInfoRepository {
         currencyUnit: String,
         requestIntervalMs: Long
     ): Flow<Ticker>
+
+    fun getAllCoinCurrentPrice(symbols: List<String>, currencyUnit: String): Flow<List<Ticker>>
 }

@@ -1,13 +1,12 @@
 package xyz.myeoru.coinexchangeexample.core.model
 
 import org.json.JSONObject
-import xyz.myeoru.coinexchangeexample.core.constant.CoinSymbols
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 data class Ticker(
-    val coinSymbols: CoinSymbols,
+    val symbol: String,
     val currencyUnit: String,
     val tickType: String,
     val date: LocalDate,
@@ -28,9 +27,7 @@ data class Ticker(
 
 fun JSONObject.mapperToTicker(): Ticker {
     val symbolSplit = this.getString("symbol").split("_")
-    val coinSymbols = CoinSymbols.entries.find { it.name == symbolSplit[0] } ?: throw Exception(
-        "CoinSymbol not found."
-    )
+    val symbol = symbolSplit[0]
     val currencyUnit = symbolSplit[1]
     val tickType = this.getString("tickType")
     val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
@@ -51,7 +48,7 @@ fun JSONObject.mapperToTicker(): Ticker {
     val volumePower = this.getString("volumePower").toDouble()
 
     return Ticker(
-        coinSymbols = coinSymbols,
+        symbol = symbol,
         currencyUnit = currencyUnit,
         tickType = tickType,
         date = date,
