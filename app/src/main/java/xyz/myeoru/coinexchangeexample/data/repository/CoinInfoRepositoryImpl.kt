@@ -4,12 +4,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.channels.trySendBlocking
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -35,23 +33,26 @@ class CoinInfoRepositoryImpl @Inject constructor(
 
     override fun receiveCoinCurrentPrice(
         symbols: List<String>,
-        currencyUnit: String,
-        requestIntervalMs: Long
+        currencyUnit: String
     ): Flow<Ticker> = callbackFlow {
-        var isConnected = false
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                isConnected = true
+                val reqMap = mapOf(
+                    "type" to "ticker",
+                    "symbols" to symbols.map { "${it}_$currencyUnit" },
+                    "tickTypes" to listOf("MID")
+                )
+                val jsonObject = JSONObject(reqMap)
+                val json = jsonObject.toString()
+                webSocket.send(json)
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                isConnected = false
-                webSocket.close(1000, "Coin current price socket closed.")
-                webSocket.cancel()
+                Timber.v("receiveCoinCurrentPrice onClosing [code:$code, reason:$reason]")
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                isConnected = false
+                Timber.v("receiveCoinCurrentPrice onClosed [code:$code, reason:$reason]")
                 channel.close()
             }
 
@@ -70,34 +71,15 @@ class CoinInfoRepositoryImpl @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                isConnected = false
+                Timber.w(t, "receiveCoinCurrentPrice onFailure")
             }
         }
         val request = Request.Builder()
             .url("wss://pubwss.bithumb.com/pub/ws")
             .build()
-        var webSocket = socketClient.newWebSocket(request, listener)
-        launch {
-            while (true) {
-                if (isConnected) {
-                    val reqMap = mapOf(
-                        "type" to "ticker",
-                        "symbols" to symbols.map { "${it}_$currencyUnit" },
-                        "tickTypes" to listOf("MID")
-                    )
-                    val jsonObject = JSONObject(reqMap)
-                    val json = jsonObject.toString()
-                    webSocket.send(json)
-                    delay(requestIntervalMs)
-                } else {
-                    webSocket = socketClient.newWebSocket(request, listener)
-                    delay(1000)
-                }
-            }
-        }
+        val webSocket = socketClient.newWebSocket(request, listener)
         awaitClose {
             webSocket.close(1000, "Coin current price socket closed.")
-            webSocket.cancel()
         }
     }.flowOn(Dispatchers.IO)
 

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,11 +35,6 @@ class HomeViewModel @Inject constructor(
 
     private var receiveCoinCurrentPriceJob: Job? = null
 
-    override fun onCleared() {
-        stopReceiveCoinCurrentPrice()
-        super.onCleared()
-    }
-
     fun fetchCoinCurrentPrice() {
         viewModelScope.launch {
             coinInfoRepository.getAllCoinCurrentPrice(
@@ -58,13 +54,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun startReceiveCoinCurrentPrice() {
-        if (receiveCoinCurrentPriceJob?.isActive == true || receiveCoinCurrentPriceJob != null) return
-
         receiveCoinCurrentPriceJob = viewModelScope.launch {
             coinInfoRepository.receiveCoinCurrentPrice(
                 symbols = symbols,
-                currencyUnit = "KRW",
-                requestIntervalMs = 10
+                currencyUnit = "KRW"
             ).catch { error ->
                 Timber.e(error)
             }.onEach {
@@ -77,8 +70,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun stopReceiveCoinCurrentPrice() {
-        receiveCoinCurrentPriceJob?.cancel()
+    suspend fun stopReceiveCoinCurrentPrice() {
+        receiveCoinCurrentPriceJob?.cancelAndJoin()
         receiveCoinCurrentPriceJob = null
     }
 

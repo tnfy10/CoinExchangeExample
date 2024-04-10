@@ -6,8 +6,7 @@ import xyz.myeoru.coinexchangeexample.core.model.Ticker
 interface CoinInfoRepository {
     fun receiveCoinCurrentPrice(
         symbols: List<String>,
-        currencyUnit: String,
-        requestIntervalMs: Long
+        currencyUnit: String
     ): Flow<Ticker>
 
     fun getAllCoinCurrentPrice(symbols: List<String>, currencyUnit: String): Flow<List<Ticker>>

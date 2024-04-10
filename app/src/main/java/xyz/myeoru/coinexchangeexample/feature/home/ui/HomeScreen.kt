@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import xyz.myeoru.coinexchangeexample.core.constant.CoinChangeType
 import xyz.myeoru.coinexchangeexample.core.constant.CoinSymbols
 import xyz.myeoru.coinexchangeexample.core.model.Ticker
@@ -37,6 +39,7 @@ fun HomeScreen(
     homeViewModel: HomeViewModel = hiltViewModel(),
     onNavigateToCoinInfo: (symbol: String) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     val coinMap by homeViewModel.coinMapState.collectAsStateWithLifecycle()
     val coinChangeMap by homeViewModel.coinChangeMapState.collectAsStateWithLifecycle()
 
@@ -47,7 +50,9 @@ fun HomeScreen(
         }
 
         onPauseOrDispose {
-            homeViewModel.stopReceiveCoinCurrentPrice()
+            scope.launch {
+                homeViewModel.stopReceiveCoinCurrentPrice()
+            }
         }
     }
 
