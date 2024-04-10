@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import xyz.myeoru.coinexchangeexample.core.ui.navigation.Screens
 import xyz.myeoru.coinexchangeexample.core.ui.navigation.animateComposable
 import xyz.myeoru.coinexchangeexample.feature.coininfo.CoinInfoScreen
+import xyz.myeoru.coinexchangeexample.feature.home.ui.HomeScreen
 
 @Composable
 fun MainNavHost(
@@ -16,12 +17,12 @@ fun MainNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screens.Main.route
+        startDestination = Screens.Home.route
     ) {
         composable(
-            route = Screens.Main.route
+            route = Screens.Home.route
         ) {
-            MainScreen(
+            HomeScreen(
                 onNavigateToCoinInfo = { symbol ->
                     navController.navigate("${Screens.CoinInfo.route}/$symbol")
                 }
