@@ -101,6 +101,11 @@ private fun HomeContainer(
                                     absChgAmt >= 1 -> DecimalFormat("#,##0").format(absChgAmt)
                                     else -> "%.4f".format(absChgAmt)
                                 }
+                                val formattedChgRate = when {
+                                    it.chgRate > 0 -> "+%.2f%%".format(it.chgRate)
+                                    it.chgRate < 0 -> "%.2f%%".format(it.chgRate)
+                                    else -> "0.00%"
+                                }
                                 Column(
                                     horizontalAlignment = Alignment.End
                                 ) {
@@ -109,14 +114,13 @@ private fun HomeContainer(
                                         style = MaterialTheme.typography.titleMedium
                                     )
                                     Text(
-                                        text = "$formattedChgAmt 원" +
-                                                "(${if (it.chgRate >= 0) "+" else ""}${
-                                                    "%.2f%%".format(
-                                                        it.chgRate
-                                                    )
-                                                })",
+                                        text = "$formattedChgAmt 원($formattedChgRate)",
                                         style = MaterialTheme.typography.titleSmall.copy(
-                                            color = if (it.chgRate >= 0) Color.Red else Color.Blue
+                                            color = when {
+                                                it.chgRate > 0 -> Color.Red
+                                                it.chgRate < 0 -> Color.Blue
+                                                else -> Color.Black
+                                            }
                                         )
                                     )
                                 }
