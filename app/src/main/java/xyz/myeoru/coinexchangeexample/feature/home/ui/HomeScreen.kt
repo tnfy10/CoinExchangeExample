@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +31,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import xyz.myeoru.coinexchangeexample.core.constant.CoinSymbols
@@ -46,7 +44,6 @@ fun HomeScreen(
     homeViewModel: HomeViewModel = hiltViewModel(),
     onNavigateToCoinInfo: (symbol: String) -> Unit
 ) {
-    val scope = rememberCoroutineScope()
     val coinMap by homeViewModel.coinMapState.collectAsStateWithLifecycle()
 
     LifecycleResumeEffect(key1 = Unit) {
@@ -56,9 +53,7 @@ fun HomeScreen(
         }
 
         onPauseOrDispose {
-            scope.launch {
-                homeViewModel.closeSocket()
-            }
+            homeViewModel.closeSocket()
         }
     }
 
