@@ -3,37 +3,31 @@ package xyz.myeoru.coinexchangeexample.feature.home.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import xyz.myeoru.coinexchangeexample.core.constant.CoinChangeType
 import xyz.myeoru.coinexchangeexample.core.constant.CoinSymbols
 import xyz.myeoru.coinexchangeexample.core.model.Ticker
 import xyz.myeoru.coinexchangeexample.data.repository.CoinInfoRepository
+import xyz.myeoru.coinexchangeexample.data.socket.BitThumbSocketManager
+import xyz.myeoru.coinexchangeexample.data.socket.SocketState
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val coinInfoRepository: CoinInfoRepository
+    private val coinInfoRepository: CoinInfoRepository,
+    private val bitThumbSocketManager: BitThumbSocketManager
 ) : ViewModel() {
     private val symbols = CoinSymbols.entries.map { it.name }
 
     private val _coinMapState = MutableStateFlow<Map<String, Ticker>>(emptyMap())
     val coinMapState = _coinMapState.asStateFlow()
-
-    private val _coinChangeMapState =
-        MutableStateFlow(CoinSymbols.entries.associate { Pair(it.name, CoinChangeType.None) })
-    val coinChangeMapState = _coinChangeMapState.asStateFlow()
-
-    private var receiveCoinCurrentPriceJob: Job? = null
 
     fun fetchCoinCurrentPrice() {
         viewModelScope.launch {
@@ -53,46 +47,31 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun startReceiveCoinCurrentPrice() {
-        receiveCoinCurrentPriceJob = viewModelScope.launch {
-            coinInfoRepository.receiveCoinCurrentPrice(
+    fun connectSocket() {
+        bitThumbSocketManager.connect(
+            onState = { state ->
+                if (state is SocketState.Open) {
+                    startReceiveCoinCurrentPrice()
+                }
+            }
+        )
+    }
+
+    fun closeSocket() {
+        bitThumbSocketManager.close(1000, "Socket closed.")
+    }
+
+    private fun startReceiveCoinCurrentPrice() {
+        viewModelScope.launch(Dispatchers.IO) {
+            bitThumbSocketManager.requestSubsTicker(
                 symbols = symbols,
-                currencyUnit = "KRW"
-            ).catch { error ->
-                Timber.e(error)
-            }.onEach {
-                updateCoinChangeMapState(it)
-            }.collect { ticker ->
+                currencyUnit = "KRW",
+                tickTypes = listOf("MID")
+            )
+            bitThumbSocketManager.receiveTickerFlow.collect { ticker ->
                 val copyMap = coinMapState.value.toMutableMap()
                 copyMap[ticker.symbol] = ticker
                 _coinMapState.emit(copyMap)
-            }
-        }
-    }
-
-    suspend fun stopReceiveCoinCurrentPrice() {
-        receiveCoinCurrentPriceJob?.cancelAndJoin()
-        receiveCoinCurrentPriceJob = null
-    }
-
-    private fun updateCoinChangeMapState(newTicker: Ticker) {
-        viewModelScope.launch {
-            val oldTicker = coinMapState.value[newTicker.symbol]
-            val oldClosePrice = oldTicker?.closePrice ?: return@launch
-            val coinChangeType = when {
-                oldClosePrice < newTicker.closePrice -> CoinChangeType.Up
-                oldClosePrice > newTicker.closePrice -> CoinChangeType.Down
-                else -> CoinChangeType.None
-            }
-
-            if (coinChangeType != CoinChangeType.None) {
-                var newCoinChangeMap = coinChangeMapState.value.toMutableMap()
-                newCoinChangeMap[newTicker.symbol] = coinChangeType
-                _coinChangeMapState.emit(newCoinChangeMap)
-                delay(150)
-                newCoinChangeMap = coinChangeMapState.value.toMutableMap()
-                newCoinChangeMap[newTicker.symbol] = CoinChangeType.None
-                _coinChangeMapState.emit(newCoinChangeMap)
             }
         }
     }

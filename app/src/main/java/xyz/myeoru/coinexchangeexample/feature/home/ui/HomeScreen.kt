@@ -17,8 +17,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,8 +31,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import xyz.myeoru.coinexchangeexample.core.constant.CoinChangeType
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import xyz.myeoru.coinexchangeexample.core.constant.CoinSymbols
 import xyz.myeoru.coinexchangeexample.core.model.Ticker
 import xyz.myeoru.coinexchangeexample.feature.home.viewmodel.HomeViewModel
@@ -41,35 +48,38 @@ fun HomeScreen(
 ) {
     val scope = rememberCoroutineScope()
     val coinMap by homeViewModel.coinMapState.collectAsStateWithLifecycle()
-    val coinChangeMap by homeViewModel.coinChangeMapState.collectAsStateWithLifecycle()
 
     LifecycleResumeEffect(key1 = Unit) {
         with(homeViewModel) {
             fetchCoinCurrentPrice()
-            startReceiveCoinCurrentPrice()
+            connectSocket()
         }
 
         onPauseOrDispose {
             scope.launch {
-                homeViewModel.stopReceiveCoinCurrentPrice()
+                homeViewModel.closeSocket()
             }
         }
     }
 
     HomeContainer(
         coinMap = coinMap,
-        coinChangeMap = coinChangeMap,
         onNavigateToCoinInfo = onNavigateToCoinInfo
     )
 }
+
+private val oldCoinMapMutex = Mutex()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContainer(
     coinMap: Map<String, Ticker>,
-    coinChangeMap: Map<String, CoinChangeType>,
     onNavigateToCoinInfo: (symbol: String) -> Unit
 ) {
+    val oldCoinMap = remember {
+        mutableStateMapOf(*coinMap.entries.map { Pair(it.key, it.value) }.toTypedArray())
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,6 +98,30 @@ private fun HomeContainer(
                 items = CoinSymbols.entries.toList(),
                 key = { it.name }
             ) { item ->
+                val closePrice by remember(coinMap) {
+                    mutableStateOf(coinMap[item.name]?.closePrice)
+                }
+                var containerColor by remember {
+                    mutableStateOf(Color.Transparent)
+                }
+
+                LaunchedEffect(key1 = closePrice) {
+                    val oldClosePrice = oldCoinMap[item.name]?.closePrice
+                    closePrice?.let {
+                        containerColor = when {
+                            oldClosePrice == null -> Color.Transparent
+                            it > oldClosePrice -> Color.Red.copy(alpha = 0.1f)
+                            it < oldClosePrice -> Color.Blue.copy(alpha = 0.1f)
+                            else -> Color.Transparent
+                        }
+                        delay(150)
+                    }
+                    containerColor = Color.Transparent
+                    oldCoinMapMutex.withLock {
+                        oldCoinMap.putAll(coinMap)
+                    }
+                }
+
                 ListItem(
                     headlineContent = {
                         Row(
@@ -146,11 +180,7 @@ private fun HomeContainer(
                     },
                     modifier = Modifier.clickable { onNavigateToCoinInfo(item.name) },
                     colors = ListItemDefaults.colors(
-                        containerColor = when (coinChangeMap[item.name]) {
-                            CoinChangeType.Up -> Color.Red.copy(alpha = 0.1f)
-                            CoinChangeType.Down -> Color.Blue.copy(alpha = 0.1f)
-                            else -> Color.Transparent
-                        }
+                        containerColor = containerColor
                     )
                 )
             }
@@ -164,7 +194,6 @@ private fun HomeScreenPreview() {
     MaterialTheme {
         HomeContainer(
             coinMap = emptyMap(),
-            coinChangeMap = emptyMap(),
             onNavigateToCoinInfo = {}
         )
     }
